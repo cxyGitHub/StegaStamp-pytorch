@@ -28,9 +28,9 @@ if [ -n "$VAL_PATH" ]; then
   echo "Using val path: $VAL_PATH"
 fi
 
+python -c "import torch; print(torch.cuda.is_available())"
 
-
-CUDA_VISIBLE_DEVICES=3 python -m stegastamp.train "$EXP_NAME" \
+CUDA_VISIBLE_DEVICES=0 python -m stegastamp.train "$EXP_NAME" \
   --train_path "$TRAIN_PATH" \
   ${VAL_PATH:+--val_path "$VAL_PATH"} \
   --height 224 --width 224 \

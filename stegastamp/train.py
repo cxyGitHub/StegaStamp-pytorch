@@ -8,6 +8,21 @@ import argparse
 import random
 from typing import Tuple
 
+import sys
+import torch
+print(f"Python路径: {sys.executable}")
+print(f"当前工作目录: {os.getcwd()}")
+print(f"项目根目录: {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}")
+print(f"sys.path: {sys.path}")
+print(f"PyTorch版本: {torch.__version__}")
+print(f"CUDA可用: {torch.cuda.is_available()}")
+print("-" * 50)
+
+# 将项目根目录添加到 Python 路径，以便可以导入 stegastamp 模块
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -20,6 +35,13 @@ from torch.utils.tensorboard import SummaryWriter
 from stegastamp.models import StegaStampEncoder, StegaStampDecoder, Discriminator, prepare_deployment_hiding
 from stegastamp.augment import RandomPhotometric, RandomBlurNoise, RandomJPEG, affine_matrix, apply_affine, invert_affine_2x3, apply_affine_mask_like
 from stegastamp.losses import LPIPSLoss, yuv_color_l2, bce_secret_loss
+
+# 尝试导入 safetensors（可选依赖）
+try:
+    from safetensors.torch import save_file as save_safetensors
+    HAS_SAFETENSORS = True
+except ImportError:
+    HAS_SAFETENSORS = False
 
 
 class ImageFolderFlat(Dataset):
@@ -114,7 +136,7 @@ def main():
     args.exp_name = f"{timestamp}_{args.exp_name}"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    print(f"Device: {device}")
     dataset = ImageFolderFlat(args.train_path, size=(args.width, args.height))
     orig_images = len(dataset)
     # training-time dataset subsampling
@@ -188,7 +210,7 @@ def main():
     total_steps = max(1, len(loader))
 
     if args.pretrained and os.path.isfile(args.pretrained):
-        ckpt = torch.load(args.pretrained, map_location="cpu")
+        ckpt = torch.load(args.pretrained, map_location="cpu", weights_only=False)
         encoder.load_state_dict(ckpt["encoder"]) 
         decoder.load_state_dict(ckpt["decoder"]) 
         try:
@@ -217,10 +239,17 @@ def main():
     best_val_bit_acc = 0.0
 
     def keep_only_latest_and_best(directory: str) -> None:
-        """Remove all checkpoint files except 'latest.pth' and 'best.pth'."""
+        """Remove all checkpoint files except 'latest.pth', 'best.pth', 'latest.safetensors', and 'best.safetensors'."""
         try:
             for fname in os.listdir(directory):
                 if fname.endswith((".pt", ".pth")) and (fname not in ("best.pth", "latest.pth")):
+                    fpath = os.path.join(directory, fname)
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+                # 保留 safetensors 文件，只删除其他旧的 safetensors 文件
+                elif fname.endswith(".safetensors") and (fname not in ("best.safetensors", "latest.safetensors")):
                     fpath = os.path.join(directory, fname)
                     try:
                         os.remove(fpath)
@@ -452,6 +481,20 @@ def main():
                 }
                 latest_path = os.path.join(args.checkpoints_dir, args.exp_name, "latest.pth")
                 torch.save(ckpt, latest_path)
+                # 保存为 safetensors 格式
+                if HAS_SAFETENSORS:
+                    try:
+                        latest_safetensors_path = os.path.join(args.checkpoints_dir, args.exp_name, "latest.safetensors")
+                        # safetensors 需要将 state_dict 合并为一个字典
+                        combined_state = {}
+                        combined_state.update({f"encoder.{k}": v for k, v in encoder.state_dict().items()})
+                        combined_state.update({f"decoder.{k}": v for k, v in decoder.state_dict().items()})
+                        combined_state.update({f"discriminator.{k}": v for k, v in discriminator.state_dict().items()})
+                        # 元数据
+                        metadata = {"step": str(global_step)}
+                        save_safetensors(combined_state, latest_safetensors_path, metadata=metadata)
+                    except Exception as e:
+                        print(f"[warning] Failed to save safetensors: {e}")
                 keep_only_latest_and_best(os.path.join(args.checkpoints_dir, args.exp_name))
 
             # validation and best checkpointing

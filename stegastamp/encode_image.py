@@ -34,6 +34,7 @@ def main():
     os.makedirs(args.save_dir, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
     encoder = StegaStampEncoder(height=args.height, width=args.width, secret_size=args.secret_size).to(device)
 
     ckpt = torch.load(args.model, map_location="cpu")

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "PyTorch reimplementation of StegaStamp with training and inference"
 authors = ["anonymous <anon@example.com>"]
 channels = ["conda-forge", "pytorch"]
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
 
 [dependencies]
 python = ">=3.10,<3.13"

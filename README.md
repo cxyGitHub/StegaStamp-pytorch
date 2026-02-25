@@ -145,5 +145,5 @@ If you use this project in your research, please cite:
 }
 ```
 
-
+<!-- bash ./scripts/train_imagenet.sh  ./asset/images_noise_1x/ cxy -->
 

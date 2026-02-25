@@ -61,6 +61,6 @@ CUDA_VISIBLE_DEVICES=0 python -m stegastamp.train "$EXP_NAME" \
   --l2_edge_gain 10 \
   --l2_edge_ramp 10000 \
   --l2_edge_delay 80000 \
-  "${EXTRA_ARGS[@]}"
+${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 

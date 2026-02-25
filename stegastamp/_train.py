@@ -33,7 +33,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from stegastamp.models import StegaStampEncoder, StegaStampDecoder, Discriminator, prepare_deployment_hiding
-from stegastamp.augment import affine_matrix, apply_affine, invert_affine_2x3, apply_affine_mask_like
+from stegastamp.augment import RandomPhotometric, RandomBlurNoise, RandomJPEG, affine_matrix, apply_affine, invert_affine_2x3, apply_affine_mask_like
 from stegastamp.losses import LPIPSLoss, yuv_color_l2, bce_secret_loss
 
 # 尝试导入 safetensors（可选依赖）
@@ -185,6 +185,10 @@ def main():
     discriminator = Discriminator().to(device)
 
     lpips_loss = LPIPSLoss().to(device)
+    # 恢复摄影增广模块
+    im_photometric = RandomPhotometric(args.rnd_bri, args.rnd_sat, args.rnd_hue, args.contrast_low, args.contrast_high)
+    im_blurnoise = RandomBlurNoise(max_sigma_gauss=3.0, noise_std=args.rnd_noise)
+    im_jpeg = RandomJPEG(min_quality=int(args.jpeg_quality))
 
     g_vars = list(encoder.parameters()) + list(decoder.parameters())
     d_vars = list(discriminator.parameters())
@@ -323,8 +327,22 @@ def main():
             encoded_warped = torch.clamp(encoded_warped, 0.0, 1.0)
             encoded_image = torch.clamp(encoded_image, 0.0, 1.0)
 
-            # 直接使用编码后的图像进行解码（不使用摄影增广）
+            # transformer：仅保留摄影增广
+            noise_scale = ramp_value(global_step, args.rnd_noise_ramp, 1.0)
+            photo_scale = min(
+                ramp_value(global_step, args.rnd_bri_ramp, 1.0),
+                ramp_value(global_step, args.rnd_sat_ramp, 1.0),
+                ramp_value(global_step, args.rnd_hue_ramp, 1.0),
+                ramp_value(global_step, args.contrast_ramp, 1.0),
+            )
+            jpeg_scale = ramp_value(global_step, args.jpeg_quality_ramp, 1.0)
+
             transformed = encoded_image
+            if not no_im_loss:
+                transformed = im_blurnoise(transformed, scale=noise_scale)
+                transformed = im_photometric(transformed, scale=photo_scale)
+                if not args.no_jpeg:
+                    transformed = im_jpeg(transformed, scale=jpeg_scale)
 
             # decode
             decoded_logits = decoder(transformed)

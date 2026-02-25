@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 生成训练图片集脚本
-基于现有图片生成：
-1. 100张随机裁剪图片（裁剪到原图的1/3大小）
-2. 100张随机涂鸦图片
+基于现有图片生成随机涂鸦图片
 """
 
 import os
@@ -17,25 +15,6 @@ except ImportError:
     print("错误: 需要安装 Pillow 库")
     print("请运行: pip install Pillow")
     sys.exit(1)
-
-def random_crop_one_third(img):
-    """
-    随机裁剪图片到原图的1/3大小
-    裁剪后保持1/3大小，不缩放回原始尺寸
-    训练脚本会自动resize到指定尺寸
-    """
-    width, height = img.size
-    # 计算1/3大小
-    new_width = width // 3
-    new_height = height // 3
-    
-    # 随机选择裁剪起始位置
-    left = random.randint(0, width - new_width)
-    top = random.randint(0, height - new_height)
-    
-    # 裁剪并保持1/3大小（不缩放回原图大小）
-    cropped = img.crop((left, top, left + new_width, top + new_height))
-    return cropped
 
 def random_scribble(img):
     """
@@ -104,8 +83,6 @@ def main():
     parser.add_argument("--output_dir", type=str,
                        default="./asset/images_noise_1x/train/class1",
                        help="输出目录")
-    parser.add_argument("--num_crop", type=int, default=100,
-                       help="生成的随机裁剪图片数量")
     parser.add_argument("--num_scribble", type=int, default=100,
                        help="生成的随机涂鸦图片数量")
     parser.add_argument("--seed", type=int, default=42,
@@ -132,15 +109,6 @@ def main():
         print(f"错误: 无法读取源图片: {e}")
         sys.exit(1)
     
-    # 生成随机裁剪图片
-    print(f"\n生成 {args.num_crop} 张随机裁剪图片...")
-    for i in range(args.num_crop):
-        cropped = random_crop_one_third(source_img)
-        output_path = os.path.join(args.output_dir, f"crop_{i+1:03d}.png")
-        cropped.save(output_path)
-        if (i + 1) % 10 == 0:
-            print(f"  已生成 {i + 1}/{args.num_crop} 张")
-    
     # 生成随机涂鸦图片
     print(f"\n生成 {args.num_scribble} 张随机涂鸦图片...")
     for i in range(args.num_scribble):
@@ -151,9 +119,7 @@ def main():
             print(f"  已生成 {i + 1}/{args.num_scribble} 张")
     
     print(f"\n完成! 所有图片已保存到: {args.output_dir}")
-    print(f"  - 随机裁剪图片: {args.num_crop} 张")
     print(f"  - 随机涂鸦图片: {args.num_scribble} 张")
-    print(f"  - 总计: {args.num_crop + args.num_scribble} 张新图片")
 
 if __name__ == "__main__":
     main()

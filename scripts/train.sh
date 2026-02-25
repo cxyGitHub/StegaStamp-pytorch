@@ -6,4 +6,4 @@ bash ./scripts/train_imagenet.sh ./asset/images_noise_1x test_run \
   --log_interval 10 \
   --height 224 \
   --width 224 \
-  --secret_size 32
+  --secret_size 100
